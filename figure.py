@@ -1,21 +1,21 @@
 import pygame
 from enum import Enum
-import copy
-import random
+from copy import deepcopy
 import math
 import numpy as np
+from termcolor import colored, cprint
 
 Direction = Enum('Direction', ['X', 'Y'])
 
 # All tetris figure shape, defined by positions of 4 tiles
 FIGURE_SHAPES = [
-  [(-1, 0), (-2, 0), (0, 0), (1, 0)],
-  [(0, -1), (-1, -1), (-1, 0), (0, 0)],
-  [(-1, 0), (-1, 1), (0, 0), (0, -1)],
-  [(0, 0), (-1, 0), (0, 1), (-1, -1)],
-  [(0, 0), (0, -1), (0, 1), (-1, -1)],
-  [(0, 0), (0, -1), (0, 1), (1, -1)],
-  [(0, 0), (0, -1), (0, 1), (-1, 0)]
+  ('Bar', 'green', [(-1, 0), (-2, 0), (0, 0), (1, 0)]),
+  ('Square', 'red', [(0, -1), (-1, -1), (-1, 0), (0, 0)]),
+  ('Z_Mirr', 'blue', [(-1, 0), (-1, 1), (0, 0), (0, -1)]),
+  ('Z', 'yellow', [(0, 0), (-1, 0), (0, 1), (-1, -1)]),
+  ('L_Mirr', 'grey', [(0, 0), (0, -1), (0, 1), (-1, -1)]),
+  ('L', 'magenta', [(0, 0), (0, -1), (0, 1), (1, -1)]),
+  ('T', 'cyan', [(0, 0), (0, -1), (0, 1), (-1, 0)])
 ]
 
 CLOCK_WISE_90 = -math.pi / 2.0
@@ -27,56 +27,47 @@ ROTATION_MATRIX = np.array([
 class Figure:
 
   @classmethod
-  def all(cls, border):
-    return [Figure(shape, border) for shape in FIGURE_SHAPES]
-
-  @classmethod
-  def random(cls, border):
-    return Figure(FIGURE_SHAPES[random.randrange(len(FIGURE_SHAPES))], border)
+  def all_shapes(cls, initial_pos=(0, 0)):
+    return [Figure(definition, initial_pos) for definition in FIGURE_SHAPES]
   
-  def __init__(self, positions, border: tuple[int, int], color: pygame.Color = pygame.Color('white')):
+  def __init__(self, definition: tuple[str, str, list[tuple[int, int]]], initial_pos=(0, 0)):
     """Figure
     Generate Normalized Figure with initial position, the center of x and top of y.
 
     Args:
-        positions (array of positions): upper left postions of tiles, length should be 4
-        border (tuple[int, int]): left and right edge of border
-    """    
+        definition: (name, color, positions)
+          positions: (array of positions): upper left postions of tiles, length should be 4
+        field_width_and_height (tuple[int, int]): right edge of border and bottom edge of border (width and height of field)
+    """
+    self.name, self.color_name, positions = definition
+    
     if len(positions) != 4:
       raise ValueError("Number of positions should be 4")
 
-    self.color = color
-    self.border_left, self.border_right = border
-    self.tiles = [
-      pygame.Rect(
-        x + self.border_right // 2, # x
-        y + 2,                      # y
-        1,                          # width
-        1                           # height
-      )
-      for x, y in positions
-    ]
+    self.fallen = False
+    self.color = pygame.Color(self.color_name)
+    self.tiles = [pygame.Rect(x + initial_pos[0], y + initial_pos[1], 1, 1) for x, y in positions]
   
-  def move(self, direction: Direction, distance: int):
-    old_tiles = copy.deepcopy(self.tiles)
+  def move(self, direction: Direction, distance: int, field: list[list[int]]):
+    old_tiles = deepcopy(self.tiles)
     
     # move x
     if direction == Direction.X:
       for tile in self.tiles:
         tile.x += distance
-        # cancel if it moves to out side of border
-        if self.__out_of_border():
-          self.tiles = copy.deepcopy(old_tiles)
+      if self.__cannot_move(field):
+        self.tiles = deepcopy(old_tiles)
 
     # move y
     elif direction == Direction.Y:
       for tile in self.tiles:
         tile.y += distance
-        # cancel if it moves to out side of border
-        if self.__out_of_border():
-          self.tiles = copy.deepcopy(old_tiles)
+      if self.__cannot_move(field):
+        if self.__fallen(field):
+          self.fallen = True
+        self.tiles = deepcopy(old_tiles)
 
-  def rotate(self):
+  def rotate(self, field):
     # prepare np.array vectors for calculation
     vectors = np.array([[tile.x, tile.y] for tile in self.tiles])
 
@@ -89,20 +80,52 @@ class Figure:
     # center tile
     index_of_center_tile = 0
     center = vectors[index_of_center_tile]
-
     # rotate
     rotated = np.round((vectors - center) @ ROTATION_MATRIX, decimals=0) + center
 
-    # if it crosses border then move to inside.
-    while rotated[rotated < self.border_left].size > 0:
+    # 左にはみ出たら内側に戻す    
+    x_coordinates = rotated[:, 0]
+    while x_coordinates[x_coordinates < 0].size > 0:
+      print("left out")
       rotated = rotated + [1, 0]
-    while rotated[rotated >= self.border_right].size > 0:
+      # 内側に戻して、ぶつかったら回転自体をやめる
+      if self.__cannot_move(field):
+        return
+
+    # 右にはみ出たら内側に戻す    
+    border_right = len(field) - 1
+    while x_coordinates[x_coordinates > border_right].size > 0:
+      print("right out")
       rotated = rotated + [-1, 0]
+      # 内側に戻して、ぶつかったら回転自体をやめる
+      if self.__cannot_move(field):
+        return
+
+    # 回せない場合はやめる
+    if self.__cannot_move(field):
+      return
 
     self.tiles = [pygame.Rect(x, y, 1, 1) for x, y in list(rotated)]
 
-  def __out_of_border(self):
-    return any([tile.x < self.border_left or tile.x > self.border_right -1 for tile in self.tiles])
+  def print(self, message='', end=' '):
+    color_block = colored("■", self.color_name)
+    cprint(color_block + f"[{self.name}]".ljust(10, ' ') + message, end=end)
+
+  def __cannot_move(self, field):
+    border_right = len(field) - 1
+    border_bottom = len(field[0]) - 1
+    outside_of_x = any([tile.x < 0 or tile.x > border_right for tile in self.tiles])
+    outside_of_y = any([tile.y > border_bottom for tile in self.tiles])
+    return outside_of_x or outside_of_y or self.__hit_other_figure(field)
+
+  def __hit_other_figure(self, field):
+    border_bottom = len(field[0]) - 1
+    return any([field[tile.x][min(tile.y, border_bottom)] for tile in self.tiles])
+
+  def __fallen(self, field):
+    border_bottom = len(field[0]) - 1
+    outside_of_y = any([tile.y > border_bottom for tile in self.tiles])
+    return outside_of_y or self.__hit_other_figure(field)
 
   def __print_position(self, label: str, vectors):
-    print(label.rjust(10, ' ') + ': ' + ' '.join([','.join([str(e) for e in v]) for v in list(vectors)]))
+    print(f"{label.rjust(10, ' ')}: {' '.join([','.join([str(e) for e in v]) for v in list(vectors)])}")
