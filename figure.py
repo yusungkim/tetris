@@ -83,13 +83,19 @@ class Figure:
     # rotate
     rotated = np.round((vectors - center) @ ROTATION_MATRIX, decimals=0) + center
 
+    # 一旦回す
+    old_tiles = deepcopy(self.tiles)
+    self.tiles = [pygame.Rect(x, y, 1, 1) for x, y in list(rotated)]
+
     # 左にはみ出たら内側に戻す    
     x_coordinates = rotated[:, 0]
     while x_coordinates[x_coordinates < 0].size > 0:
       print("left out")
       rotated = rotated + [1, 0]
+      self.tiles = [pygame.Rect(x, y, 1, 1) for x, y in list(rotated)]
       # 内側に戻して、ぶつかったら回転自体をやめる
       if self.__cannot_move(field):
+        self.tiles = old_tiles
         return
 
     # 右にはみ出たら内側に戻す    
@@ -97,15 +103,16 @@ class Figure:
     while x_coordinates[x_coordinates > border_right].size > 0:
       print("right out")
       rotated = rotated + [-1, 0]
+      self.tiles = [pygame.Rect(x, y, 1, 1) for x, y in list(rotated)]
       # 内側に戻して、ぶつかったら回転自体をやめる
       if self.__cannot_move(field):
+        self.tiles = old_tiles
         return
 
     # 回せない場合はやめる
     if self.__cannot_move(field):
+      self.tiles = old_tiles
       return
-
-    self.tiles = [pygame.Rect(x, y, 1, 1) for x, y in list(rotated)]
 
   def print(self, message='', end=' '):
     color_block = colored("■", self.color_name)
