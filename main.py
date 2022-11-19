@@ -10,9 +10,9 @@ GAME_RES = W * TILE, H * TILE # screen pixel size
 FPS = 60      # frame per sec
 
 # Game Configs
-FALLING_SPEED = 100
-FALLING_SPEED_ACCELERATED = FALLING_SPEED * 7 # when key down
-FALLING_TRIGGER = 1000                        # falling_count reaches this, fall one unit
+FALLING_SPEED = 20
+FALLING_SPEED_ACCELERATED = 200 # when key down
+FALLING_TRIGGER = 1000          # falling_count reaches this, fall one unit
 
 # Grid borders
 GRID = [
@@ -77,9 +77,10 @@ while True:
     print(" Fell!")
     # update field
     for tile in figure.tiles:
-      field[tile.x][tile.y] = True
+      field[tile.x][tile.y] = figure.color
     # create new figure
     figure = random_figure()
+    fast_falling = False
 
   # draw grid
   [
@@ -92,16 +93,17 @@ while True:
     # rect
     rect = figure_rect(tile.x, tile.y)
     pygame.draw.rect(screen, figure.color, rect)
-    # label
-    font = pygame.font.SysFont(None, 50)
-    lebel = font.render(str(idx), True, (0, 0, 0))
-    screen.blit(lebel, (rect.x + TILE / 4, rect.y + TILE / 4))
+    # mark center tile
+    if (idx == 0):
+      font = pygame.font.SysFont(None, 50)
+      lebel = font.render("O", True, (0, 0, 0))
+      screen.blit(lebel, (rect.x + 9, rect.y + 9))
 
   # draw field
   for x, column in enumerate(field):
     for y, filled in enumerate(column):
       if filled:
-        pygame.draw.rect(screen, pygame.Color('white'), figure_rect(x, y))
+        pygame.draw.rect(screen, filled, figure_rect(x, y))
 
   pygame.display.update() # display Surface全体を更新して画面に描写します
   pygame.display.set_caption("Tetris, FPS=" + str(round(clock.get_fps(), 3)))

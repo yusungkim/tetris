@@ -87,25 +87,27 @@ class Figure:
     old_tiles = deepcopy(self.tiles)
     self.tiles = [pygame.Rect(x, y, 1, 1) for x, y in list(rotated)]
 
-    # 左にはみ出たら内側に戻す    
+    # 左にはみ出たら
     x_coordinates = rotated[:, 0]
     while x_coordinates[x_coordinates < 0].size > 0:
-      print("left out")
+      # 内側に移動
       rotated = rotated + [1, 0]
+      x_coordinates = rotated[:, 0]
       self.tiles = [pygame.Rect(x, y, 1, 1) for x, y in list(rotated)]
-      # 内側に戻して、ぶつかったら回転自体をやめる
-      if self.__cannot_move(field):
+      # ぶつかったら回転自体をやめる
+      if self.__hit_other_figure(field):
         self.tiles = old_tiles
         return
 
-    # 右にはみ出たら内側に戻す    
+    # 右にはみ出たら
     border_right = len(field) - 1
     while x_coordinates[x_coordinates > border_right].size > 0:
-      print("right out")
+      # 内側に移動
       rotated = rotated + [-1, 0]
+      x_coordinates = rotated[:, 0]
       self.tiles = [pygame.Rect(x, y, 1, 1) for x, y in list(rotated)]
       # 内側に戻して、ぶつかったら回転自体をやめる
-      if self.__cannot_move(field):
+      if self.__hit_other_figure(field):
         self.tiles = old_tiles
         return
 
@@ -126,8 +128,9 @@ class Figure:
     return outside_of_x or outside_of_y or self.__hit_other_figure(field)
 
   def __hit_other_figure(self, field):
+    border_right = len(field) - 1
     border_bottom = len(field[0]) - 1
-    return any([field[tile.x][min(tile.y, border_bottom)] for tile in self.tiles])
+    return any([field[min(tile.x, border_right)][min(tile.y, border_bottom)] for tile in self.tiles])
 
   def __fallen(self, field):
     border_bottom = len(field[0]) - 1
