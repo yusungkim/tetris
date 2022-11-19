@@ -8,7 +8,7 @@ GAME_RES = W * TILE, H * TILE # screen pixel size
 FPS = 60      # frame per sec
 
 # Game Configs
-FALLING_SPEED = 30
+FALLING_SPEED = 0
 FALLING_SPEED_ACCELERATED = FALLING_SPEED * 7 # when key down
 FALLING_TRIGGER = 1000                        # falling_count reaches this, fall one unit
 
@@ -73,9 +73,18 @@ while True:
   ]
 
   # draw figure
-  for tile in figure.tiles:
+  for idx, tile in enumerate(figure.tiles):
     x, y = tile.x * TILE, tile.y * TILE
-    pygame.draw.rect(screen, pygame.Color('white'), figure_rect(x, y))
+    colors = [
+      pygame.Color('white'),
+      pygame.Color('green'),
+      pygame.Color('yellow'),
+      pygame.Color('red')
+    ]
+    pygame.draw.rect(screen, colors[idx], figure_rect(x, y))
+    font = pygame.font.SysFont(None, 50)
+    lebel = font.render(str(idx), True, (0, 0, 0))
+    screen.blit(lebel, (x + TILE / 4, y + TILE / 4))
 
   pygame.display.update() # display Surface全体を更新して画面に描写します
   pygame.display.set_caption("Tetris, FPS=" + str(round(clock.get_fps(), 3)))
