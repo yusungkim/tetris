@@ -1,22 +1,33 @@
 # Tetris
 
-
 ## Source
 
 [参考 Youtube](https://www.youtube.com/watch?v=7kGNs5R-AM8)
 
-
 Figure coordinate
 ![figure](images/figure_coordinate.png)
 
-
 ## 開発環境
 
-```bash
-python --version
-# Python 3.9.15
+### Setup
 
+```bash
+# create python virtual environment
+pyenv shell 3.9.15
+python -m venv .venv
+
+# activate virtual environment
 source .venv/bin/activate
 
+# package install
+pip install --requirement requirements.txt
+
+# run app
 python main.py
+```
+
+### 開発
+
+```bash
+pip freeze > requirements.txt
 ```
