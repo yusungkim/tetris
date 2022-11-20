@@ -7,7 +7,10 @@ from termcolor import colored, cprint
 # Screen Configs
 W, H = 10, 20 # count of tiles
 TILE = 45     # pixels for width and height for each tile
+MARGIN = 20
+SCORE_BOARD_WIDTH = 400
 GAME_RES = W * TILE, H * TILE # screen pixel size
+SCREEN_RES = GAME_RES[0] + MARGIN * 2 + SCORE_BOARD_WIDTH, GAME_RES[1] + MARGIN * 2
 FPS = 60      # frame per sec
 
 # Game Configs
@@ -27,15 +30,18 @@ figures = Figure.all_shapes(initial_pos=(W // 2, 2))
 field = [[False for i in range(H)] for j in range(W)]
 
 def figure_rect(x = 0, y = 0):
-  return pygame.Rect(x * TILE, y * TILE, TILE - 2, TILE - 2)
+  return pygame.Rect(x * TILE + 1, y * TILE + 1, TILE - 2, TILE - 2)
 
 ################################### Game start
 
 pygame.init()
 pygame.display.set_caption("Tetris, YusungKim")
 pygame.display.set_icon(pygame.image.load('images/meteor.png'))
-screen = pygame.display.set_mode(GAME_RES)
-clock = pygame.time.Clock()  
+screen = pygame.display.set_mode(SCREEN_RES)
+game_screen = pygame.Surface(GAME_RES)
+bg_screen = pygame.image.load('images/bg_screen.png').convert()
+bg_game = pygame.image.load('images/bg_game.jpg').convert()
+clock = pygame.time.Clock() 
 
 scores = {
   "completed": 0,   # clear one or more line for each figure
@@ -51,6 +57,10 @@ def new_figure():
 
   # create new figure
   figure = deepcopy(choice(figures))
+  figure.color.r = min(max(figure.color.r + randint(-100, 100), 0), 255)
+  figure.color.g = min(max(figure.color.g + randint(-100, 100), 0), 255)
+  figure.color.b = min(max(figure.color.b + randint(-100, 100), 0), 255)
+  print(figure.color)
   figure.print()
   return figure
 
@@ -58,7 +68,10 @@ falling_count, fast_falling = 0, False
 figure = new_figure()
 while True:
   dx, dy = 0, 1
-  screen.fill(pygame.Color('black'))
+  screen.blit(bg_screen, (0, 0))
+  screen.blit(game_screen, (MARGIN, MARGIN))
+  game_screen.blit(bg_game, (0, 0))
+  # game_screen.fill(pygame.Color(255, 255, 255, a=0))
 
   ################ Control
   for event in pygame.event.get():
@@ -157,7 +170,7 @@ while True:
 
   # draw grid
   [
-    pygame.draw.rect(screen, (40, 40, 40), i_rect, 1)
+    pygame.draw.rect(game_screen, pygame.Color(40, 40, 40), i_rect, 1)
     for i_rect in GRID
   ]
 
@@ -165,18 +178,16 @@ while True:
   for idx, tile in enumerate(figure.tiles):
     # rect
     rect = figure_rect(tile.x, tile.y)
-    pygame.draw.rect(screen, figure.color, rect)
+    pygame.draw.rect(game_screen, figure.color, rect)
     # mark center tile
     if (idx == 0):
-      font = pygame.font.SysFont(None, 50)
-      lebel = font.render("O", True, (0, 0, 0))
-      screen.blit(lebel, (rect.x + 9, rect.y + 9))
+      pygame.draw.circle(game_screen, pygame.Color('red'), rect.center, radius=rect.width // 4)
 
   # draw field
   for x, column in enumerate(field):
     for y, filled in enumerate(column):
       if filled:
-        pygame.draw.rect(screen, filled, figure_rect(x, y))
+        pygame.draw.rect(game_screen, filled, figure_rect(x, y))
 
   pygame.display.update() # display Surface全体を更新して画面に描写します
   clock.tick(FPS)
