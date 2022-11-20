@@ -5,7 +5,7 @@
 [参考 Youtube](https://www.youtube.com/watch?v=7kGNs5R-AM8)
 
 Figure coordinate
-![figure](images/figure_coordinate.png)
+![figure](assets/images/figure_coordinate.png)
 
 ## 開発環境
 

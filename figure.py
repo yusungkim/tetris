@@ -3,17 +3,16 @@ from enum import Enum
 from copy import deepcopy
 import math
 import numpy as np
-from termcolor import colored, cprint
 
 Direction = Enum('Direction', ['X', 'Y'])
 
 # All tetris figure shape, defined by positions of 4 tiles
 FIGURE_SHAPES = [
-  ('Bar', 'green', [(-1, 0), (-2, 0), (0, 0), (1, 0)]),
-  ('Square', 'red', [(0, -1), (-1, -1), (-1, 0), (0, 0)]),
-  ('Z_Mirr', 'blue', [(-1, 0), (-1, 1), (0, 0), (0, -1)]),
+  ('Bar', 'red', [(-1, 0), (-2, 0), (0, 0), (1, 0)]),
+  ('Square', 'blue', [(0, -1), (-1, -1), (-1, 0), (0, 0)]),
+  ('Z_Mirr', 'green', [(-1, 0), (-1, 1), (0, 0), (0, -1)]),
   ('Z', 'yellow', [(0, 0), (-1, 0), (0, 1), (-1, -1)]),
-  ('L_Mirr', 'grey', [(0, 0), (0, -1), (0, 1), (-1, -1)]),
+  ('L_Mirr', 'orange', [(0, 0), (0, -1), (0, 1), (-1, -1)]),
   ('L', 'magenta', [(0, 0), (0, -1), (0, 1), (1, -1)]),
   ('T', 'cyan', [(0, 0), (0, -1), (0, 1), (-1, 0)])
 ]
@@ -117,8 +116,7 @@ class Figure:
       return
 
   def print(self, message='', end=' '):
-    color_block = colored("■", self.color_name)
-    cprint(color_block + f"[{self.name}]".ljust(10, ' ') + message, end=end)
+    print(f"[{self.name}]".ljust(10, ' ') + message, end=end)
 
   def __cannot_move(self, field):
     border_right = len(field) - 1
