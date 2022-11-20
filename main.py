@@ -15,7 +15,7 @@ FPS = 60      # frame per sec
 
 # Game Configs
 FALLING_SPEED = 20
-FALLING_SPEED_ACCELERATED = 400 # when key down
+FALLING_SPEED_ACCELERATED = 500 # when key down
 FALLING_TRIGGER = 1000          # falling_count reaches this, fall one unit
 
 # Grid borders
@@ -78,7 +78,6 @@ while True:
     if event.type == pygame.QUIT:
       exit()
     if event.type == pygame.KEYDOWN:
-      fast_falling = False
       if event.key == pygame.K_LEFT:
         print("L", end=" ")
         dx = -1
@@ -88,12 +87,12 @@ while True:
       elif event.key == pygame.K_DOWN:
         fast_falling = True
       elif event.key == pygame.K_UP:
-        if fast_falling:
-          fast_falling = False
-        else:
-          print("U", end=" ")
-          # rotate 90 degrees
-          figure.rotate(field)
+        print("U", end=" ")
+        # rotate 90 degrees (clock wise)
+        figure.rotate(field)
+
+    if event.type == pygame.KEYUP:
+      fast_falling = False
 
     # move x
     figure.move(Direction.X, dx, field)
