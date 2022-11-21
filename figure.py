@@ -3,6 +3,7 @@ from enum import Enum
 from copy import deepcopy
 import math
 import numpy as np
+import item
 
 Direction = Enum('Direction', ['X', 'Y'])
 
@@ -46,6 +47,7 @@ class Figure:
     self.fallen = False
     self.color = pygame.Color(self.color_name)
     self.tiles = [pygame.Rect(x + initial_pos[0], y + initial_pos[1], 1, 1) for x, y in positions]
+    self.item: item.Item = None
   
   def move(self, direction: Direction, distance: int, field: list[list[int]]):
     old_tiles = deepcopy(self.tiles)

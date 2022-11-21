@@ -4,6 +4,7 @@ from random import choice, randint
 from copy import deepcopy
 from termcolor import colored
 from util import *
+from item import Item
 
 # Screen Configs
 W, H = 10, 20 # count of tiles
@@ -17,15 +18,16 @@ FPS = 60      # frame per sec
 
 # Game Configs
 FALLING_SPEED_INITIAL = 10
-FALLING_SPEED_INCREASE = 2
+FALLING_SPEED_INCREASE = 1
 FALLING_SPEED_ACCELERATED = 500 # when key down
 FALLING_TRIGGER = 1000          # falling_count reaches this, fall one unit
+ITEM_PRESENCE = 2               # item presence in every n figures
 
 # Grid borders
 GRID = [
   pygame.Rect(x * TILE, y * TILE, TILE, TILE)
-  for x in range(W)
   for y in range(H)
+  for x in range(W)
 ]
 
 # Create figure at the position of (center x, 2nd line from the top)
@@ -56,6 +58,23 @@ sound_gameover = pygame.mixer.Sound('assets/sounds/HeavyWhooshes_39_342.wav')
 bgms = [pygame.mixer.Sound(filepath) for filepath in filenames('assets/music/*.wav')]
 clock = pygame.time.Clock()
 
+effects = []
+
+scores = {
+  "previously_completed_lines": 0,   # storage for remember previous completion
+  "combo": 0,   # continously completed
+  "score": 0,   # total score
+  "total_lines": 0  # total completed lines
+}
+
+# convert svg to png
+try:
+  svg_icons = [path[:-4] for path in filenames('assets/icons/*.svg')]
+  png_icons = [path[:-4] for path in filenames('assets/icons/*.png')]
+  [svg2png(path) for path in svg_icons if path not in png_icons]
+except:
+  print("Effor: cannot convert svg2png")
+
 def new_figure():
   # create new figure
   figure = deepcopy(choice(FIGURES))
@@ -63,19 +82,68 @@ def new_figure():
   figure.color.g = min(max(figure.color.g + randint(-100, 100), 0), 255)
   figure.color.b = min(max(figure.color.b + randint(-100, 100), 0), 255)
   figure.print()
+  if randint(1, ITEM_PRESENCE) == 1:
+    figure.item = Item(choice(Item.all()))
   return figure
+
+def enque_for_drawing_completion_effect(height):
+  global effects
+
+  r = randint(30, 200)
+  for x in range(W):
+    target_tile_rect = GRID[height * W + x]
+    target_tile_rect.x += 1
+    target_tile_rect.y += 1
+    target_tile_rect.size = (target_tile_rect.width - 2, target_tile_rect.height - 2)
+    g = int((H - height) / H * 200)
+    b = int((W - x) / H * 200)
+    effects.append([(r, g, b), target_tile_rect])
+
+def draw_item(item, rect):
+  game_screen.blit(item.image(), rect)
+
+def draw_field(field):
+  for x, column in enumerate(field):
+    for y, tile in enumerate(column):
+      if tile:
+        rect = figure_rect(x, y)
+        color, item = tile
+        pygame.draw.rect(game_screen, color, rect)
+        if item:
+          draw_item(item, rect)
+
+def draw_figure(figure):
+  for idx, tile in enumerate(figure.tiles):
+    # rect
+    rect = figure_rect(tile.x, tile.y)
+    pygame.draw.rect(game_screen, figure.color, rect)
+    # # mark center tile
+    # if figure.name != 'Square' and (idx == 0):
+    #   pygame.draw.circle(game_screen, pygame.Color('orange'), rect.center, radius=rect.width // 6)
+    # item
+    if figure.item and (idx == 0):
+      draw_item(figure.item, rect)
+
+def deal_with_items(items: list[Item]):
+  global scores
+  for item in items:
+    if item == Item.DOLLAR:
+      scores["score"] += 20
+      print("ITEM: Money")
+    elif item == Item.BOLT:
+      print("ITEM: Thunder bolt")
+    elif item == Item.STAR:
+      print("ITEM: star")
+    else:
+      print(item)
+  pass
 
 # initialize new game
 falling_speed = FALLING_SPEED_INITIAL
 falling_count, fast_falling = 0, False
-figure, next_figure = new_figure(), new_figure()
+figure, next_figure, previous_figure = new_figure(), new_figure(), None
 field = [[False for i in range(H)] for j in range(W)]
-scores = {
-  "previously_completed_lines": 0,   # storage for remember previous completion
-  "combo": 0,   # continously completed
-  "score": 0,   # total score
-  "total_lines": 0  # total completed lines
-}
+previous_field = deepcopy(field)
 record = get_record()
 
 # Background music
@@ -122,10 +190,13 @@ while True:
   # hit the ground
   if figure.fallen:
     print(" Fallen!")
+    previous_field = deepcopy(field)
+    previous_figure = deepcopy(figure)
+    scores["score"] +=1
     pygame.mixer.Sound.play(sound_falled)
     # update field
-    for tile in figure.tiles:
-      field[tile.x][tile.y] = figure.color
+    for idx, tile in enumerate(figure.tiles):
+      field[tile.x][tile.y] = (figure.color, figure.item if idx == 0 else None)
     # create new figure and reset
     figure = next_figure
     next_figure = new_figure()
@@ -138,14 +209,23 @@ while True:
   completed = 0
   rewrite_y = H - 1
   for source_y in range(H - 1, -1, -1):
-    filled = 0
+    filled_count = 0
+    items = []
     for x in range(W):
-      if field[x][source_y]:
-        filled += 1
-      field[x][rewrite_y] = field[x][source_y]
-    if filled == W:
+      tile_filled = field[x][source_y]
+      if tile_filled:
+        filled_count += 1
+        _, item = tile_filled
+        if item:
+          items.append(item)
+      field[x][rewrite_y] = tile_filled
+      
+    if filled_count == W:
       completed += 1
       falling_speed = min(falling_speed + FALLING_SPEED_INCREASE, FALLING_SPEED_ACCELERATED)
+      # draw completion effect
+      enque_for_drawing_completion_effect(source_y)
+      deal_with_items(items)
     else:
       rewrite_y -= 1
 
@@ -195,30 +275,29 @@ while True:
     # update title
     pygame.display.set_caption(f"Tetris, YusungKim   {score} Points")
 
-  ############# Draw
+  ########################################## Draw
 
+  ######################## GAME SCREEN
   # draw grid
-  [
-    pygame.draw.rect(game_screen, pygame.Color(40, 40, 40), i_rect, 1)
-    for i_rect in GRID
-  ]
+  [pygame.draw.rect(game_screen, pygame.Color(40, 40, 40), i_rect, 1) for i_rect in GRID]
 
-  # draw figure
-  for idx, tile in enumerate(figure.tiles):
-    # rect
-    rect = figure_rect(tile.x, tile.y)
-    pygame.draw.rect(game_screen, figure.color, rect)
-    # mark center tile
-    if figure.name != 'Square' and (idx == 0):
-      pygame.draw.circle(game_screen, pygame.Color('orange'), rect.center, radius=rect.width // 6)
+  # draw field(fallen figures) and figure
+  if len(effects) > 0:
+    draw_field(previous_field)
+    draw_figure(previous_figure)
 
-  # draw field
-  for x, column in enumerate(field):
-    for y, filled in enumerate(column):
-      if filled:
-        pygame.draw.rect(game_screen, filled, figure_rect(x, y))
+    # draw effects
+    effect = effects.pop()
+    pygame.draw.rect(game_screen, effect[0], effect[1])
+    screen.blit(game_screen, (BOARD_RES[0] + MARGIN * 2, MARGIN))
+    pygame.display.flip()
+    clock.tick(1000)
+
+  else:
+    draw_field(field)
+    draw_figure(figure)
   
-  # draw board
+  ######################## BOARD SCREEN
   screen.blit(text_title, (MARGIN + 10, MARGIN + 10))
   screen.blit(text_record, (MARGIN + 40, BOARD_RES[1] - MARGIN - 270))
   screen.blit(font.render(str(record).rjust(6, ' '), True, pygame.Color('yellow')), (MARGIN + 40, BOARD_RES[1] - MARGIN - 200))

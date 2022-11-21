@@ -22,6 +22,9 @@ source .venv/bin/activate
 # package install
 pip install --requirement requirements.txt
 
+# dependences
+brew install cairo # for svg loading
+
 # run app
 python main.py
 ```

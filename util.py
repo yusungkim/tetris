@@ -16,3 +16,8 @@ def set_record(record, score):
 def filenames(path):
   import glob
   return glob.glob(path)
+
+def svg2png(path):
+  import cairosvg
+  print(f"Converting.. {path}")
+  cairosvg.svg2png(url=f"{path}.svg", write_to=f"{path}.png")
