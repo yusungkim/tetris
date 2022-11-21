@@ -1,10 +1,10 @@
 from pygame import image, transform
-from strenum import StrEnum
+from strenum import LowercaseStrEnum
 from enum import auto
 
 # ITEM = Enum('ITEM', ['bolt', 'stop', 'fire', 'bug', 'clock', 'eye', 'dollar', 'star'])
 
-class Item(StrEnum):
+class Item(LowercaseStrEnum):
   BOLT = auto()
   DOLLAR = auto()
   STAR = auto()
