@@ -1,5 +1,6 @@
 import pygame
-from figure import *
+from figure import FigureQueue, Direction
+from shape import Shape, DifficultShape
 from random import choice, randint
 from copy import deepcopy
 from termcolor import colored
@@ -21,7 +22,7 @@ FALLING_SPEED_INITIAL = 10
 FALLING_SPEED_INCREASE = 1
 FALLING_SPEED_ACCELERATED = 500 # when key down
 FALLING_TRIGGER = 1000          # falling_count reaches this, fall one unit
-ITEM_PRESENCE = 2               # item presence in every n figures
+DEFAULT_ITEM_PRESENCE_RATIO = 0.3               # item presence in every n figures
 
 # Grid borders
 GRID = [
@@ -29,9 +30,6 @@ GRID = [
   for y in range(H)
   for x in range(W)
 ]
-
-# Create figure at the position of (center x, 2nd line from the top)
-FIGURES = Figure.all_shapes(initial_pos=(W // 2, 1))
 
 def figure_rect(x = 0, y = 0):
   return pygame.Rect(x * TILE + 1, y * TILE + 1, TILE - 2, TILE - 2)
@@ -75,17 +73,6 @@ try:
 except:
   print("Effor: cannot convert svg2png")
 
-def new_figure():
-  # create new figure
-  figure = deepcopy(choice(FIGURES))
-  figure.color.r = min(max(figure.color.r + randint(-100, 100), 0), 255)
-  figure.color.g = min(max(figure.color.g + randint(-100, 100), 0), 255)
-  figure.color.b = min(max(figure.color.b + randint(-100, 100), 0), 255)
-  figure.print()
-  if randint(1, ITEM_PRESENCE) == 1:
-    figure.item = Item(choice(Item.all()))
-  return figure
-
 def enque_for_drawing_completion_effect(height):
   global effects
 
@@ -99,8 +86,8 @@ def enque_for_drawing_completion_effect(height):
     b = int((W - x) / H * 200)
     effects.append([(r, g, b), target_tile_rect])
 
-def draw_item(item, rect):
-  game_screen.blit(item.image(), rect)
+def draw_item(item, rect, screen):
+  screen.blit(item.image(), rect)
 
 def draw_field(field):
   for x, column in enumerate(field):
@@ -110,7 +97,8 @@ def draw_field(field):
         color, item = tile
         pygame.draw.rect(game_screen, color, rect)
         if item:
-          draw_item(item, rect)
+          draw_item(item, rect, game_screen)
+
 
 def draw_figure(figure):
   for idx, tile in enumerate(figure.tiles):
@@ -122,7 +110,7 @@ def draw_figure(figure):
     #   pygame.draw.circle(game_screen, pygame.Color('orange'), rect.center, radius=rect.width // 6)
     # item
     if figure.item and (idx == 0):
-      draw_item(figure.item, rect)
+      draw_item(figure.item, rect, game_screen)
 
 def deal_with_items(items: list[Item]):
   global scores
@@ -131,9 +119,13 @@ def deal_with_items(items: list[Item]):
       scores["score"] += 20
       print("ITEM: Money")
     elif item == Item.BOLT:
-      print("ITEM: Thunder bolt")
+      print("ITEM: Thunder bolt, Add Difficult Figure")
+      figures.add(1, DifficultShape.random())
     elif item == Item.STAR:
-      print("ITEM: star")
+      print("ITEM: star, add three bar figure")
+      figures.add(3, Shape.BAR)
+    elif item == Item.EYE:
+      print("ITEM: eye, show next of next figure")
     else:
       print(item)
   pass
@@ -141,7 +133,8 @@ def deal_with_items(items: list[Item]):
 # initialize new game
 falling_speed = FALLING_SPEED_INITIAL
 falling_count, fast_falling = 0, False
-figure, next_figure, previous_figure = new_figure(), new_figure(), None
+# Create figure at the position of (center x, 2nd line from the top)
+figures = FigureQueue(DEFAULT_ITEM_PRESENCE_RATIO, initial_pos=(W // 2, 1))
 field = [[False for i in range(H)] for j in range(W)]
 previous_field = deepcopy(field)
 record = get_record()
@@ -163,43 +156,37 @@ while True:
       exit()
     if event.type == pygame.KEYDOWN:
       if event.key == pygame.K_LEFT:
-        print("L", end=" ")
         dx = -1
       elif event.key == pygame.K_RIGHT:
-        print("R", end=" ")
         dx = 1
       elif event.key == pygame.K_DOWN:
         fast_falling = True
       elif event.key == pygame.K_UP:
-        print("U", end=" ")
         # rotate 90 degrees (clock wise)
-        figure.rotate(field)
+        figures.current_figure.rotate(field)
 
     if event.type == pygame.KEYUP:
       fast_falling = False
 
     # move x
-    figure.move(Direction.X, dx, field)
+    figures.current_figure.move(Direction.X, dx, field)
 
   # move y
   falling_count +=  FALLING_SPEED_ACCELERATED if fast_falling else falling_speed
   if falling_count > FALLING_TRIGGER:
     falling_count = 0
-    figure.move(Direction.Y, dy, field)
+    figures.current_figure.move(Direction.Y, dy, field)
   
   # hit the ground
-  if figure.fallen:
-    print(" Fallen!")
+  if figures.current_figure.fallen:
     previous_field = deepcopy(field)
-    previous_figure = deepcopy(figure)
     scores["score"] +=1
     pygame.mixer.Sound.play(sound_falled)
     # update field
-    for idx, tile in enumerate(figure.tiles):
-      field[tile.x][tile.y] = (figure.color, figure.item if idx == 0 else None)
+    for idx, tile in enumerate(figures.current_figure.tiles):
+      field[tile.x][tile.y] = (figures.current_figure.color, figures.current_figure.item if idx == 0 else None)
     # create new figure and reset
-    figure = next_figure
-    next_figure = new_figure()
+    figures.next()
     if not scores["previously_completed_lines"]:
       scores["combo"] = 0
     scores["previously_completed_lines"] = 0
@@ -284,10 +271,10 @@ while True:
   # draw field(fallen figures) and figure
   if len(effects) > 0:
     draw_field(previous_field)
-    draw_figure(previous_figure)
+    draw_figure(figures.previous_figure)
 
     # draw effects
-    effect = effects.pop()
+    effect = effects.pop(0)
     pygame.draw.rect(game_screen, effect[0], effect[1])
     screen.blit(game_screen, (BOARD_RES[0] + MARGIN * 2, MARGIN))
     pygame.display.flip()
@@ -295,7 +282,7 @@ while True:
 
   else:
     draw_field(field)
-    draw_figure(figure)
+    draw_figure(figures.current_figure)
   
   ######################## BOARD SCREEN
   screen.blit(text_title, (MARGIN + 10, MARGIN + 10))
@@ -305,12 +292,15 @@ while True:
   screen.blit(font.render(str(scores["score"]).rjust(6, ' '), True, pygame.Color('white')), (MARGIN + 40, BOARD_RES[1] - MARGIN - 30))
   
   # draw next figure
+  next_figure = figures.next_figure
   for idx, tile in enumerate(next_figure.tiles):
     # rect
     rect = figure_rect(tile.x, tile.y)
     rect.x += BOARD_RES[0] // 2 + MARGIN - W * TILE // 2
     rect.y += BOARD_RES[1] // 6 + MARGIN
     pygame.draw.rect(screen, next_figure.color, rect)
+    if next_figure.item and (idx == 0):
+      draw_item(next_figure.item, rect, screen)
 
   # game over
   for x in range(W):
@@ -320,7 +310,7 @@ while True:
       # initialize new game
       falling_speed = FALLING_SPEED_INITIAL
       falling_count, fast_falling = 0, False
-      figure, next_figure = new_figure(), new_figure()
+      figures = FigureQueue(DEFAULT_ITEM_PRESENCE_RATIO, initial_pos=(W // 2, 1))
       field = [[False for i in range(H)] for j in range(W)]
       scores = {
         "previously_completed_lines": 0,   # storage for remember previous completion

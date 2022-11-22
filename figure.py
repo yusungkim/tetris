@@ -1,53 +1,66 @@
 import pygame
-from enum import Enum
+from random import choice, randint, random
 from copy import deepcopy
 import math
 import numpy as np
-import item
+from item import Item
+from enum import Enum
+from shape import *
 
 Direction = Enum('Direction', ['X', 'Y'])
 
 # All tetris figure shape, defined by positions of 4 tiles
 FIGURE_SHAPES = [
-  ('Bar', 'red', [(-1, 0), (-2, 0), (0, 0), (1, 0)]),
-  ('Square', 'blue', [(0, -1), (-1, -1), (-1, 0), (0, 0)]),
-  ('Z_Mirr', 'green', [(-1, 0), (-1, 1), (0, 0), (0, -1)]),
-  ('Z', 'yellow', [(0, 0), (-1, 0), (0, 1), (-1, -1)]),
-  ('L_Mirr', 'orange', [(0, 0), (0, -1), (0, 1), (-1, -1)]),
-  ('L', 'magenta', [(0, 0), (0, -1), (0, 1), (1, -1)]),
-  ('T', 'cyan', [(0, 0), (0, -1), (0, 1), (-1, 0)])
+  (Shape.BAR, 'red', [(-1, 0), (-2, 0), (0, 0), (1, 0)]),
+  (Shape.SQUARE, 'blue', [(0, -1), (-1, -1), (-1, 0), (0, 0)]),
+  (Shape.Z, 'green', [(-1, 0), (-1, 1), (0, 0), (0, -1)]),
+  (Shape.S, 'yellow', [(0, 0), (-1, 0), (0, 1), (-1, -1)]),
+  (Shape.L, 'orange', [(0, 0), (0, -1), (0, 1), (-1, -1)]),
+  (Shape.L2, 'magenta', [(0, 0), (0, -1), (0, 1), (1, -1)]),
+  (Shape.T, 'cyan', [(0, 0), (0, -1), (0, 1), (-1, 0)])
 ]
 
-CLOCK_WISE_90 = -math.pi / 2.0
+DIFFICULT_FIGURE_SHAPES = [
+  # (DifficultShape.E, 'white', [(0, 0), (1, 0), (0, 2), (1, 2), (0, -2), (1, -2), (-1, 2), (-1, 1), (-1, 0), (-1, -1), (-1, -2)]),
+  (DifficultShape.O, 'white', [(0, 0), (0, 1), (1, 1), (2, 1), (2, 0), (2, -1), (1, -1), (0, -1)]),
+  (DifficultShape.U, 'white', [(0, 0), (0, 1), (2, 1), (2, 0), (2, -1), (1, -1), (0, -1)])
+]
+
+ANTI_CLOCK_WISE_90 = +math.pi / 2.0
 ROTATION_MATRIX = np.array([
-  [math.cos(CLOCK_WISE_90), -math.sin(CLOCK_WISE_90)],
-  [math.sin(CLOCK_WISE_90), math.cos(CLOCK_WISE_90)]
+  [math.cos(ANTI_CLOCK_WISE_90), -math.sin(ANTI_CLOCK_WISE_90)],
+  [math.sin(ANTI_CLOCK_WISE_90), math.cos(ANTI_CLOCK_WISE_90)]
 ])
 
 class Figure:
-
-  @classmethod
-  def all_shapes(cls, initial_pos=(0, 0)):
-    return [Figure(definition, initial_pos) for definition in FIGURE_SHAPES]
   
-  def __init__(self, definition: tuple[str, str, list[tuple[int, int]]], initial_pos=(0, 0)):
+  def __init__(self, definition: tuple[Shape or DifficultShape, str, list[tuple[int, int]]], initial_pos=(0, 0), item: Item=None):
     """Figure
     Generate Normalized Figure with initial position, the center of x and top of y.
 
     Args:
-        definition: (name, color, positions)
+        definition: (shape, color, positions)
           positions: (array of positions): upper left postions of tiles, length should be 4
         field_width_and_height (tuple[int, int]): right edge of border and bottom edge of border (width and height of field)
     """
-    self.name, self.color_name, positions = definition
-    
-    if len(positions) != 4:
-      raise ValueError("Number of positions should be 4")
-
+    self.shape, base_color_name, positions = definition
     self.fallen = False
-    self.color = pygame.Color(self.color_name)
-    self.tiles = [pygame.Rect(x + initial_pos[0], y + initial_pos[1], 1, 1) for x, y in positions]
-    self.item: item.Item = None
+    
+    # Initial Position
+    if isinstance(self.shape, Shape):
+      self.tiles = [pygame.Rect(x + initial_pos[0], y + initial_pos[1], 1, 1) for x, y in positions]
+    elif isinstance(self.shape, DifficultShape):
+      self.tiles = [pygame.Rect(x + initial_pos[0], y + initial_pos[1] + 1, 1, 1) for x, y in positions]
+
+    # Color
+    color = pygame.Color(base_color_name)
+    color.r = min(max(color.r + randint(-100, 100), 0), 255)
+    color.g = min(max(color.g + randint(-100, 100), 0), 255)
+    color.b = min(max(color.b + randint(-100, 100), 0), 255)
+    self.color = color
+    
+    # Item
+    self.item = item
   
   def move(self, direction: Direction, distance: int, field: list[list[int]]):
     old_tiles = deepcopy(self.tiles)
@@ -72,10 +85,22 @@ class Figure:
     # prepare np.array vectors for calculation
     vectors = np.array([[tile.x, tile.y] for tile in self.tiles])
 
-    # skip if the figure shape is square
-    height_and_width_diff = np.sum(np.max(vectors, axis=0) - np.min(vectors, axis=0) + 1)
-    if height_and_width_diff == 4:
-      print("rotation make no difference")
+    # skip if the figure shape is SQUARE
+    # height_and_width_diff = np.sum(np.max(vectors, axis=0) - np.min(vectors, axis=0) + 1)
+    # if height_and_width_diff == 4:
+    #   print("rotation make no difference")
+    #   return
+    if self.shape == Shape.SQUARE:
+      if self.item:
+        first_tile = self.tiles.pop(0)
+        self.tiles.append(first_tile)
+      return
+    elif self.shape == DifficultShape.U or self.shape == DifficultShape.O:
+      if self.item:
+        first_tile = self.tiles.pop(0)
+        self.tiles.append(first_tile)
+        first_tile = self.tiles.pop(0)
+        self.tiles.append(first_tile)
       return
 
     # center tile
@@ -117,9 +142,6 @@ class Figure:
       self.tiles = old_tiles
       return
 
-  def print(self, message='', end=' '):
-    print(f"[{self.name}]".ljust(10, ' ') + message, end=end)
-
   def __cannot_move(self, field):
     border_right = len(field) - 1
     border_bottom = len(field[0]) - 1
@@ -137,5 +159,47 @@ class Figure:
     outside_of_y = any([tile.y > border_bottom for tile in self.tiles])
     return outside_of_y or self.__hit_other_figure(field)
 
-  def __print_position(self, label: str, vectors):
-    print(f"{label.rjust(10, ' ')}: {' '.join([','.join([str(e) for e in v]) for v in list(vectors)])}")
+
+class FigureQueue:
+  def __init__(self, default_item_presence_ratio: float, initial_pos=(0, 1)):
+    self.__default_item_presence_ratio = default_item_presence_ratio
+    self.__initial_pos = initial_pos
+    self.__queue:list[Figure] = []
+    self.add(2)
+    
+    # figure
+    self.previous_figure = None
+    self.current_figure = self.__queue[0]
+    self.next_figure = self.__queue[1]
+
+  def next(self, num: int = 1):
+    number_of_current_figures = len(self.__queue)
+    self.previous_figure = None if number_of_current_figures == 0 else self.__queue.pop(0)
+    self.add( max(2 - number_of_current_figures, num) )
+    self.current_figure = self.__queue[0]
+    self.next_figure = self.__queue[1]
+    self.print()
+
+  def size(self):
+    return len(self.__queue)
+
+  # create new figure and add to queue
+  def add(self, num: int = 1, shape:Shape or DifficultShape = None):
+    for _ in range(num):
+      # shape
+      definition = None
+      if isinstance(shape, Shape):
+        definition = list(filter(lambda s: s[0] == shape, FIGURE_SHAPES))[0]
+      elif isinstance(shape, DifficultShape):
+        definition = list(filter(lambda s: s[0] == shape, DIFFICULT_FIGURE_SHAPES))[0]
+      else:
+        definition = choice(FIGURE_SHAPES)
+
+      item = Item.random() if self.__default_item_presence_ratio < random() else None
+      figure = Figure(definition, self.__initial_pos, item)
+      self.__queue.append(figure)
+
+  def print(self):
+    print("SIZE: ", len(self.__queue), end=" ")
+    [print(x.shape, end=" ") for x in self.__queue]
+    print()
