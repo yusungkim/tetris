@@ -172,10 +172,13 @@ class FigureQueue:
     self.current_figure = self.__queue[0]
     self.next_figure = self.__queue[1]
 
-  def next(self, num: int = 1):
+  def next(self, num: int = None):
     number_of_current_figures = len(self.__queue)
     self.previous_figure = None if number_of_current_figures == 0 else self.__queue.pop(0)
-    self.add( max(2 - number_of_current_figures, num) )
+    if num:
+      self.add( max(2 - number_of_current_figures, num) )
+    elif number_of_current_figures <= 2:
+      self.add( max(2 - number_of_current_figures, 1) )
     self.current_figure = self.__queue[0]
     self.next_figure = self.__queue[1]
     self.print()
