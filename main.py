@@ -22,7 +22,7 @@ FALLING_SPEED_INITIAL = 10
 FALLING_SPEED_INCREASE = 1
 FALLING_SPEED_ACCELERATED = 500 # when key down
 FALLING_TRIGGER = 1000          # falling_count reaches this, fall one unit
-DEFAULT_ITEM_PRESENCE_RATIO = 0.3               # item presence in every n figures
+DEFAULT_ITEM_PRESENCE_RATIO = 0.2               # item presence in every n figures
 
 # Grid borders
 GRID = [
@@ -116,7 +116,7 @@ def deal_with_items(items: list[Item]):
   global scores
   for item in items:
     if item == Item.DOLLAR:
-      scores["score"] += 20
+      scores["score"] += 100
       print("ITEM: Money")
     elif item == Item.BOLT:
       print("ITEM: Thunder bolt, Add Difficult Figure")

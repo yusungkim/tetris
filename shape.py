@@ -3,19 +3,19 @@ from strenum import StrEnum
 from random import choice
 
 class Shape(StrEnum):
-  BAR = auto()
-  SQUARE = auto()
-  Z = auto()
-  S = auto()
-  L = auto()
-  L2 = auto()
-  T = auto()
+  BAR = 'BAR'
+  SQUARE = 'SQUARE'
+  Z = 'Z'
+  S = 'S'
+  L = 'L'
+  L2 = 'L2'
+  T = 'T'
 
 class DifficultShape(StrEnum):
-  # E = auto()
-  # F = auto()
-  O = auto()
-  U = auto()
+  # E = 'E'
+  # F = 'F'
+  O = 'O'
+  U = 'U'
 
   @classmethod
   def all(cls):
